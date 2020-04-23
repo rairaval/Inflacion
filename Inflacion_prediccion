@@ -1,0 +1,239 @@
+### series temporales ###
+
+setwd('Directorio')
+library(TSA)
+
+if(!requiere('pacman'))install.packages('pacman')
+pacman::p_load(readxl,fpp2,tseries,forecast,ggplot2,seasonal,descomponer,TSA)
+
+infla <- read_excel("directorio inflacion")
+str(infla) #no es una seria
+##### TOTAL.
+serieinfla<-ts(infla,start =c(1938,7), frequency = 12 )
+
+str(serieinfla)
+View(serieinfla)
+head(infla)
+autoplot(serieinfla)
+
+
+inflaizquierda<-ts(serieinfla,start = c(2005,2),frequency = 12)
+inflareciente<- window(serieinfla, start=c(2005,2),end=c(2020,2)) 
+
+autoplot(inflareciente)
+View(inflareciente)
+sd(inflareciente)
+
+#Analisi grafico de la estacionalidad. Representacionn por anio 
+ggseasonplot(inflareciente, year.labels=TRUE, year.labels.left=TRUE) +
+  ylab("numero") +  ggtitle("infla de izquieda por mes")
+
+infla_desiz <- decompose(inflareciente, type ='multiplicative')
+
+autoplot(infla_desiz)
+
+#COEFICIENTES DEBIDO A LA ESTACIONALIDAD
+infla_desiz$figure
+
+######################### el de la izquierda
+autoplot(inflareciente, series="Datos") +
+  
+  autolayer(trendcycle(infla_desiz), series="Tendencia") +
+  
+  autolayer(seasadj(infla_desiz), series="Estacionalmente ajustada") +
+  
+  xlab("anio") + ylab("tasa de inlacion") +
+  
+  ggtitle("Inflacion a partir de 2005") +
+  
+  scale_colour_manual(values=c("black","purple","red"),
+                      
+                      breaks=c("Datos","Estacionalmente ajustada","Tendencia"))
+
+# Analisis grafico de la estacionalidad. Representacion por anio #estacionalidad por anios
+ggseasonplot(inflareciente, year.labels=TRUE, year.labels.left=TRUE) +
+  ylab("numero") +  ggtitle("Seasonal plot: inflacion")
+
+#representar los residuos.
+autoplot(infla_desiz$random) #no es tampoco un ruido blanco.
+
+mean(infla_desiz$random, na.rm = T)
+sd(infla_desiz$random, na.rm = T) #La desviacion tipica
+
+#Ir a la búsqueda. En estadística, el Test de Shapiro-Wilk se usa para contrastar la normalidad de un conjunto de datos. Se plantea como hipótesis nula que una muestra x1, ..., xn proviene de una población normalmente distribuida.
+#La hipótesis nula (distibucion normal) se rechazará si W es demasiado pequeño.El valor de W puede oscilar entre 0 y 1. 
+
+shapiro.test(infla_desiz$random) #NO RECHAZO H0. HABRIA NORMALIDAD. estaria distribuida normalmente.
+
+#HEMOS REALIZADO REALIZADO UN PANORAMA GENERAL Y utilizaremos:
+
+# Construccionn del periodograma 
+gperiodograma(inflaizquierda)
+
+# Ventanas de ajuste y evaluaciion. vamos a predecir.Tiene que ser secuencial, 
+#voy a intentar modelizar por ventanas temporales (window)
+
+#LA DE IZQUIERDA ES LA MAS RECIENTE
+infla_tr<-window(x = inflareciente, end = c((2020,2)) #le dices el largo del tiempo de la ventana. 
+infla_tst<-window(x = inflareciente, start = c((2020,3))
+                  
+#Para validarlo. 
+#infla_tr<-window(x = inflaizquierda, end = c(2018,12)) #le dices el largo del tiempo de la ventana. 
+#infla_tst<-window(x = inflaizquierda, start = c(2019,1))
+
+
+infla_tr
+infla_tst
+##############################
+#SUAVIZADO EXPONENCIAL SIMPLE.
+##############################
+
+infla_s1=ses(infla_tr, h=4) #el h te marca hasta que tan adelante quieres predecir. SES+Suavizado Exponencial Simple. 
+infla_s1 #si quiero predecir mucho a largo plazo funcionan CADA VEZ PEOR. el
+autoplot(infla_s1)
+
+### Distribucion de residuos
+print(infla_s1) #CASI LE DA EL 100% A LO QUE PASA HOY. para predecir el manana. 
+infla_s1$model
+autoplot(infla_s1$residuals)
+
+#Representamos los valores observados y los suavizados con la prediccion. la linea azul es el fiter y el otro es la realidad. Lo violeta te marca el intervalo de confianza. 
+#el suavizado funciona. pero en cuento quiero predecir le va muy mal. 
+autoplot(infla_s1) +
+  autolayer(fitted(infla_s1), series="Fitted")+autolayer(infla_tst, series="actual") +
+  ylab("Inflacion") + xlab("Mes/AÃ±o")
+
+########################################
+###  Suavizado Exponencial doble de Holt
+########################################
+
+infla_sh <- holt(infla_tr, h=4)
+print(infla_sh)
+infla_sh$model
+autoplot(infla_sh)
+autoplot(infla_sh$residuals)
+
+#Representamos los valores observados y los suavizados con la predicciÃ³n 
+autoplot(infla_sh) +
+  autolayer(fitted(infla_sh), series="Fitted") +autolayer(infla_tst, series="actual") +
+  ylab("Inflacion") + xlab("Mes/anio")
+#En Uruguay hay leyes que si sobrepasa el 10% por un tiempo determinado el gobierno debe de aumentar los salarios. 
+#Lograr predecir si se encontrara por debajo.
+
+
+#############################################################
+#### Holt-Winters #puede ya tener en cuenta la Estacionalidad. 
+#############################################################
+
+# Ajuste de modelo
+infla_hw_add <- hw(infla_tr, h=4)
+infla_hw_mul <- hw(infla_tr, h=4, seasonal="multiplicative",level = c(80, 90))
+
+#Visualizacion. Se acerca mas o menos a la realidad el azul claro es el test real. Toma un componente estacional pero 
+#no tomo la superheterocedacticidad de la serie = en la predicion te 'elimina la heterocedacticidad' 
+autoplot(infla_hw_add)+ autolayer(fitted(infla_hw_mul), series="Fitted") +autolayer(infla_tst, series="Test") +
+  ylab("Inflacion") + xlab("Anio") 
+infla_hw_add$model
+autoplot(infla_hw_mul)+ autolayer(fitted(infla_hw_mul), series="Fitted") +autolayer(infla_tst, series="Test") +
+  ylab("Inflacion") + xlab("Anio")
+
+#######################################################
+#### Predicciones utilizando el paquete forecast (ETS)
+#######################################################
+
+ETS_pred<-forecast(infla_tr,h=4)
+
+autoplot(ETS_pred)+autolayer(fitted(ETS_pred),series='Fitted') + autolayer(infla_tst,series='test')+
+  ylab('inflacion') + xlab('year')
+ETS_pred$model
+#ETS_pred2<-forecast(infla_tr,h=6)
+#autoplot(ETS_pred2)
+#ETS_pred3<-forecast(infla_tr,h=4)
+#autoplot(ETS_pred3)
+
+####################################################################
+#Precision de las distintas predicciones
+accuracy(infla_tr,infla_tst)  
+accuracy(infla_sh,infla_tst) 
+accuracy(infla_hw_add,infla_tst)
+accuracy(ETS_pred,infla_tst)
+####################################################################
+
+##Proceso ARIMA##
+
+###### Tratamiento de la serie. Hacia la serie estacionaria ########
+
+############## Eliminar la heterocedasticidad. Estabilizacionn de la varianza
+inflaLogiz<-log(inflaizquierda)
+autoplot(inflaLogiz)
+ggAcf(inflaLogiz, lag=48) #HAY CONVERGENCIA EXPONENCIAL. 
+ggPacf(inflaLogiz, lag=48) #PODRIA SER UN AR(2) Aunque el 4to rtardo y alguno mas da significatico. 
+
+#NOTA: Aun relizando un logaritmo. No se logra Estacionalizar la serie. 
+#Es decir, PERSISTE LA TENDENCIA Y LA VARIANZA NO ES CONSTANTE.  
+
+#REPRESENTACION GRAFICA. 
+ts.plot(inflaLogiz, main= 'Inflacion de izquierda, Estabilizo varianza y diferenciacion', 
+        gpars=list(xlab="year", ylab="log(inflaizquierda)", lty=c(1:3)))
+
+############## Eliminar tendencia HAGO UNA PRIMERA DIFERENCIACION.
+
+inflaLogiz.diff_1<-diff(inflaLogiz) #diferenciacion de orden UNO. 
+autoplot(inflaLogiz.diff_1)
+ts.plot(inflaLogiz.diff_1, main= 'Inflacion. 
+        Estabilizacionn Varianza y diferenciacion', 
+        gpars=list(xlab="year", ylab="log(Serieinfla)", lty=c(1:3))) 
+abline(h=0)
+
+#La tendencia queda erradicada
+#En terminos generales la varianza es mayormente constante. 
+#compara si diferencio sin haber hecho logaritmo.
+ggAcf(inflaLogiz.diff_1, lag=48) #si es estacionaria. 
+ggPacf(inflaLogiz.diff_1, lag=48)
+
+############################ ELIMINO ESTACIONALIDAD. SEGUNDA DIFERENCIA
+############################ Gobierno de izquierda 
+inflaLog.diff_1_12izq<-diff(inflaLogiz.diff_1, lag = 12) #LE DIGO QUE ES DE ORDEN 12, 12 MESES
+ts.plot(inflaLog.diff_1_12izq, main= 'Inflacion. 
+        Diferenciacion estacional ', 
+        gpars=list(xlab="year", ylab="log(Inflacion)", lty=c(1:3)))
+abline(h=0) #ME TIRA LA LINEA DE LA MEDIA. 
+#NO HAY TENDENCIA aunque y la varianxa es mayormente constante. 
+ggAcf(inflaLog.diff_1_12izq, lag=48)
+ggPacf(inflaLog.diff_1_12izq, lag=48)
+
+### Contraste de normalidad de los residuos
+ks.test(inflaLog.diff_1_12izq,'pnorm')
+shapiro.test(inflaLog.diff_1_12izq) #no rechazo H0
+
+### ARIMA1
+#modeloarima1 <-Arima(infla_tr,order=c(1,1,1),seasonal = c(1,1,1))
+#checkresiduals(modeloarima1)
+
+#tsdiag(modeloarima1)
+
+#pred.modeloarima1<-forecast(modeloarima1, h=4)
+#pred.modeloarima1 %>%autoplot() + autolayer(infla_tst,series = 'Real')
+
+### ARIMA2
+modeloarima <- Arima(infla_tr, order=c(1,1,1))
+checkresiduals(modeloarima)
+tsdiag(modeloarima2)
+### PRED
+pred.modeloarima2<-forecast(modeloarima2, h=4)
+pred.modeloarima2 %>%autoplot() + autolayer(infla_tst,series = 'Real')
+
+### AUTOARIMA
+
+fit_infla <-auto.arima(infla_tr, seasonal = FALSE)
+checkresiduals(fit_infla)
+tsdiag(fit_infla)
+
+pred.auto<-forecast(fit_infla,h=4)
+pred.auto %>% autoplot() + autolayer(infla_tst,series='Real')
+
+#PRUEBO LA PRECISION DE LOS MODELOS GENERADOS. 
+
+accuracy(pred.modeloarima1,infla_tst)
+accuracy(pred.modeloarima2,infla_tst)
+accuracy(pred.auto, infla_tst)
