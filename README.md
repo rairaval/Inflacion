@@ -10,7 +10,7 @@ Uploade the file, data, and run R code
 
 ## Authors
 
-* **Raul Vila** - *Initial work* - [PurpleBooth](https://www.linkedin.com/in/raulvila1/)
+* **Raul Vila** - *Initial work* - [PurpleBooth] (https://www.linkedin.com/in/raulvila1/)
 
 ## Acknowledgments
 
