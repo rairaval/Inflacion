@@ -1,0 +1,2 @@
+# Inflacion
+Inflacion en Uruguay
