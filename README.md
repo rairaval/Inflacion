@@ -12,8 +12,3 @@ Uploade the file, data, and run R code
 
 * **Raul Vila** - *Initial work* - (https://www.linkedin.com/in/raulvila1/)
 
-## Acknowledgments
-
-* Guillermo, best teacher
-* Inspiration
-* etc
