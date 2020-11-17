@@ -11,4 +11,5 @@ Uploade the file, data, and run R code
 ## Authors
 
 * **[Raul Vila](https://www.linkedin.com/in/raulvila1/)** - *Initial work* - 
+![forecast](forecast.png)
 
