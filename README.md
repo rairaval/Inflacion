@@ -6,10 +6,11 @@ This repo shows how to treat series data in R, in order to make forecast, using 
 ## Deployment
 
 Uploade the file, data, and run R code
+![forecast](forecast.png)
 
 
 ## Authors
 
 * **[Raul Vila](https://www.linkedin.com/in/raulvila1/)** - *Initial work* - 
-![forecast](forecast.png)
+
 
